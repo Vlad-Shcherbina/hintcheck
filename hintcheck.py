@@ -34,6 +34,10 @@ Instead of using the decorator, one can annotate all top-level funtions
 using hintcheck_all_functions(). It should be called after all modules
 are imported and all functions are defined, e.g. at the beginning
 of main().
+
+To enable field type checks in named tuple constructor, call function
+monkey_patch_named_tuple_constructors() before any named tuple
+definitions, e.g. at the very beginning of the main script.
 """
 
 import os
@@ -447,3 +451,58 @@ def hintcheck_all_functions():
     for f in locate_all_functions_that_need_hintcheck():
         logger.info('decorating function %s', f.qualname)
         f.set(hintchecked(f.function))
+
+
+def monkey_patch_named_tuple_constructors():
+    """Monkey-patch NamedTuple to inject monkey-patched constructors.
+
+    Should be called before any tuple definitions.
+    """
+    old = typing._make_nmtuple
+
+    def make_nmtuple_with_hintcheck(tuple_name, types):
+        logger.info('decorating NamedTuple %s', tuple_name)
+        checkers = None
+        nm = old(tuple_name, types)
+
+        caller_frame_info = inspect.stack()[2]
+        location = Location(
+            function_name=tuple_name,
+            filename=caller_frame_info.filename,
+            lineno=caller_frame_info.lineno)
+
+        def __init__(self, *args, **kwargs):
+            nonlocal checkers
+            if checkers is None:
+                # Compile checkers on first constructor invocation.
+                # Can't do it on tuple definition, because item types could
+                # be forward-referenced.
+                hints = typing.get_type_hints(nm)
+                checkers = {
+                    name: compile_checker(
+                        t,
+                        Context(hint_location=location, var_name=name),
+                        allow_wrap=False)
+                    for name, t in hints.items()}
+            assert len(self) == len(checkers)
+            for item, (name, checker) in zip(self, checkers.items()):
+                item2 = checker.check(item)
+                assert item2 is item
+
+        assert '__init__' not in nm.__dict__
+        nm.__init__ = __init__
+        # Why add __init__ instead of updating __new__?
+        # __new__ has __defaults__, and they don't work with varargs.
+        # So we can't define it as __new__(cls, *args, **kvargs),
+        # it has to be __new__(cls, {arg_list}), which would
+        # require exec, like in original namedtuple.
+
+        # This piece is copied from typing._make_nmtuple() verbatim.
+        try:
+            nm.__module__ = sys._getframe(2).f_globals.get(
+                '__name__', '__main__')
+        except (AttributeError, ValueError):
+            pass
+
+        return nm
+    typing._make_nmtuple = make_nmtuple_with_hintcheck
