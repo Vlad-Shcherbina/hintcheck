@@ -72,6 +72,10 @@ class TypeHintError(Exception):
         return self.ctx.var_name
 
 
+def hide_hint_errors(exc_info):
+    return exc_info.errisinstance(TypeHintError)
+
+
 def hintchecked(f):
     hints = typing.get_type_hints(f)
     if not hints:
@@ -98,6 +102,7 @@ def hintchecked(f):
 
     @functools.wraps(f)
     def checked_f(*args, **kwargs):
+        __tracebackhide__ = hide_hint_errors
         bound_args = sig.bind(*args, **kwargs)
         for name, value in bound_args.arguments.items():
             if name in checkers:
@@ -144,6 +149,7 @@ Checker = collections.namedtuple('Checker', 'check is_wrapping')
 @functools.singledispatch
 def compile_checker(type, ctx, *, allow_wrap):
     def is_instance_check(value):
+        __tracebackhide__ = hide_hint_errors
         if isinstance(value, type):
             return value
         # TODO: There is also complex, Fraction, maybe more.
@@ -175,6 +181,7 @@ def _(type, ctx, *, allow_wrap):
         checkers.append(compile_checker(t, ctx, allow_wrap=allow_wrap))
 
     def union_check(value):
+        __tracebackhide__ = hide_hint_errors
         for c in checkers:
             try:
                 return c.check(value)
@@ -195,6 +202,7 @@ def _(type, ctx, *, allow_wrap):
             elem_type, ctx.append('[?]'), allow_wrap=False)
 
         def tuple_ellipsis_check(value):
+            __tracebackhide__ = hide_hint_errors
             if not isinstance(value, tuple):
                 raise TypeHintError(
                     ctx=ctx, expected_type=type, actual_value=value)
@@ -210,6 +218,7 @@ def _(type, ctx, *, allow_wrap):
             compile_checker(t, ctx.append(f'[{i}]'), allow_wrap=False))
 
     def tuple_check(value):
+        __tracebackhide__ = hide_hint_errors
         if not isinstance(value, tuple):
             raise TypeHintError(
                 ctx=ctx, expected_type=type, actual_value=value)
@@ -231,6 +240,7 @@ def _(type, ctx, *, allow_wrap):
         elem_checker = compile_checker(t, ctx.append('[?]'), allow_wrap=False)
 
         def list_check(value):
+            __tracebackhide__ = hide_hint_errors
             if not isinstance(value, list):
                 raise TypeHintError(
                     ctx=ctx, expected_type=type, actual_value=value)
@@ -248,6 +258,7 @@ def _(type, ctx, *, allow_wrap):
             t, ctx.append('.some_elem'), allow_wrap=False)
 
         def set_check(value):
+            __tracebackhide__ = hide_hint_errors
             if not isinstance(value, set):
                 raise TypeHintError(
                     ctx=ctx, expected_type=type, actual_value=value)
@@ -266,6 +277,7 @@ def _(type, ctx, *, allow_wrap):
             vt, ctx.append('.some_value'), allow_wrap=False)
 
         def dict_check(value):
+            __tracebackhide__ = hide_hint_errors
             if not isinstance(value, dict):
                 raise TypeHintError(
                     ctx=ctx, expected_type=type, actual_value=value)
@@ -283,6 +295,7 @@ def _(type, ctx, *, allow_wrap):
             t, ctx.append('.some_elem'), allow_wrap=True)
 
         def iterator_check(value):
+            __tracebackhide__ = hide_hint_errors
             if not isinstance(value, collections.abc.Iterator):
                 raise TypeHintError(
                     ctx=ctx, expected_type=type, actual_value=value)
@@ -297,6 +310,7 @@ def _(type, ctx, *, allow_wrap):
             t, ctx.append('.some_elem'), allow_wrap=True)
 
         def iterable_check(value):
+            __tracebackhide__ = hide_hint_errors
             if not isinstance(value, collections.abc.Iterable):
                 raise TypeHintError(
                     ctx=ctx, expected_type=type, actual_value=value)
@@ -319,6 +333,7 @@ class IteratorCheckWrapper(object):
         return self
 
     def __next__(self):
+        __tracebackhide__ = hide_hint_errors
         result = self.it.__next__()
         return self.elem_checker.check(result)
 
@@ -349,6 +364,7 @@ def _(type, ctx, *, allow_wrap):
             at, args_ctx.append(f'[{i}]'), allow_wrap=True))
 
     def callable_args_check(value):
+        __tracebackhide__ = hide_hint_errors
         if len(value) != len(arg_checkers):
             raise TypeHintError(
                 ctx=args_ctx,
@@ -364,6 +380,7 @@ def _(type, ctx, *, allow_wrap):
         result_type, ctx.append('.return'), allow_wrap=True)
 
     def callable_check(value):
+        __tracebackhide__ = hide_hint_errors
         if not isinstance(value, collections.abc.Callable):
             raise TypeHintError(
                 ctx=ctx, expected_type=type, actual_value=value)
@@ -379,6 +396,7 @@ class CallableCheckWrapper(object):
         self.f = f
 
     def __call__(self, *args):
+        __tracebackhide__ = hide_hint_errors
         result = self.f(*self.args_checker.check(args))
         return self.result_checker.check(result)
 
@@ -472,6 +490,7 @@ def monkey_patch_named_tuple_constructors():
             lineno=caller_frame_info.lineno)
 
         def __init__(self, *args, **kwargs):
+            __tracebackhide__ = hide_hint_errors
             nonlocal checkers
             if checkers is None:
                 # Compile checkers on first constructor invocation.

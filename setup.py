@@ -11,7 +11,13 @@ setup(
         'Programming Language :: Python :: 3.6',
         'Topic :: Software Development :: Libraries',
         'Topic :: Software Development :: Testing',
+        'Framework :: Pytest',
     ],
     keywords='gradual typing 484',
-    py_modules=['hintcheck'],
+    py_modules=['hintcheck', 'hintcheck_pytest_plugin'],
+    entry_points={
+        'pytest11': [
+            'pytest-hintcheck = hintcheck_pytest_plugin',
+        ]
+    },
 )
