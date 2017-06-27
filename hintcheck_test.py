@@ -38,7 +38,7 @@ def test_smoke():
 
 
 def test_no_annotations():
-    def orig_f(x):
+    def orig_f(x):  # pragma: no cover
         return x
     f = hintchecked(orig_f)
     assert f is orig_f
@@ -338,7 +338,7 @@ class C:
         return 'zzz'
 
     @rw.setter
-    def rw(x, value: int):
+    def rw(x, value: int):  # pragma: no cover
         pass
 
 
