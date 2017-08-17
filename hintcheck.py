@@ -321,7 +321,9 @@ def _(type, ctx, *, allow_wrap):
     else:
         # Some genericized ABCs have too weak (non-generic) isinstance checks,
         # we don't want to silently ignore type errors because of that.
-        raise NotImplementedError(type)
+        raise NotImplementedError(
+            f'{type}\n\n'
+            f'Type hint in\n{ctx.hint_location.mimic_traceback()}')
 
 
 class IteratorCheckWrapper(object):
