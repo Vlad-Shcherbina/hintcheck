@@ -17,6 +17,7 @@ expected type typing.List[int]
 Type hint in
   File "<doctest hintcheck[1]>", line 1, in f
     @hintchecked
+    def f(xs: List[int]) -> int:
 <BLANKLINE>
 
 >>> f(['zzz', 'qqq'])
@@ -28,6 +29,7 @@ expected type <class 'int'>
 Type hint in
   File "<doctest hintcheck[1]>", line 1, in f
     @hintchecked
+    def f(xs: List[int]) -> int:
 <BLANKLINE>
 
 Instead of using the decorator, one can annotate all top-level funtions
@@ -127,7 +129,10 @@ class Location(Location):
         # attemt to guess where multiline definition ends
         # by balancing parentheses
         for i in range(5):
-            d += linecache.getline(self.filename, self.lineno + i)
+            line = linecache.getline(self.filename, self.lineno + i)
+            d += line
+            if line.lstrip().startswith('@'):
+                continue
             if d.count(')') >= d.count('('):
                 break
 
