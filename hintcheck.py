@@ -474,7 +474,7 @@ def locate_all_functions():
 
 def locate_all_functions_that_need_hintcheck():
     for f in locate_all_functions():
-        if f.qualname.startswith('typing.'):
+        if f.function.__module__ == 'typing':
             continue
         hints = typing.get_type_hints(f.function)
         if hints:

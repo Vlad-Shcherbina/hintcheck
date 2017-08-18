@@ -3,7 +3,7 @@ import sys
 import collections
 from typing import (
     Any, Union, Tuple, NamedTuple, List, Set, Dict,
-    Iterator, Iterable, Callable, Deque)
+    Iterator, Iterable, Callable, Deque, SupportsInt)
 import logging
 import inspect
 
