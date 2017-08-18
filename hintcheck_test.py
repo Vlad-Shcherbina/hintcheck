@@ -3,7 +3,7 @@ import sys
 import collections
 from typing import (
     Any, Union, Tuple, NamedTuple, List, Set, Dict,
-    Iterator, Iterable, Callable)
+    Iterator, Iterable, Callable, Deque)
 import logging
 import inspect
 
@@ -42,6 +42,26 @@ def test_no_annotations():
         return x
     f = hintchecked(orig_f)
     assert f is orig_f
+
+
+def test_type_not_supported():
+    with pytest.raises(NotImplementedError) as exc_info:
+        @hintchecked
+        def f(x: 42):
+            pass
+    assert '42 does not look like type' in str(exc_info.value)
+
+    with pytest.raises(NotImplementedError) as exc_info:
+        @hintchecked
+        def f(x: Deque[int]):
+            pass
+    assert str(exc_info.value).startswith('typing.Deque[int]\n\n')
+
+    with pytest.raises(NotImplementedError) as exc_info:
+        @hintchecked
+        def f(x: Set):
+            pass
+    assert 'generic with no type args: typing.Set' in str(exc_info.value)
 
 
 def test_any():

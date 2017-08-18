@@ -153,6 +153,13 @@ Checker = collections.namedtuple('Checker', 'check is_wrapping')
 
 @functools.singledispatch
 def compile_checker(type, ctx, *, allow_wrap):
+    raise NotImplementedError(
+        f'{type} does not look like type\n\n'
+        f'Type hint in\n{ctx.hint_location.mimic_traceback()}')
+
+
+@compile_checker.register(type)
+def _(type, ctx, *, allow_wrap):
     def is_instance_check(value):
         __tracebackhide__ = hide_hint_errors
         if isinstance(value, type):
@@ -169,7 +176,9 @@ def compile_checker(type, ctx, *, allow_wrap):
 def _(type, ctx, *, allow_wrap):
     # Generally these types raise exception saying isinstance is not supported,
     # but who knows. We don't want to silently ignore any type errors.
-    raise NotImplementedError(type)
+    raise NotImplementedError(
+        f'{type}\n\n'
+        f'Type hint in\n{ctx.hint_location.mimic_traceback()}')
 
 
 @compile_checker.register(typing._Any)
@@ -323,9 +332,14 @@ def _(type, ctx, *, allow_wrap):
 
         return Checker(check=iterable_check, is_wrapping=True)
 
-    else:
+    elif type.__origin__ is None:
         # Some genericized ABCs have too weak (non-generic) isinstance checks,
         # we don't want to silently ignore type errors because of that.
+        raise NotImplementedError(
+            f'generic with no type args: {type}\n\n'
+            f'Type hint in\n{ctx.hint_location.mimic_traceback()}')
+
+    else:
         raise NotImplementedError(
             f'{type}\n\n'
             f'Type hint in\n{ctx.hint_location.mimic_traceback()}')
