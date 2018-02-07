@@ -26,11 +26,19 @@ Type hint in
 ```
 ## Installation
 
+For Python 3.7:
 ```
 git clone https://github.com/Vlad-Shcherbina/hintcheck.git
 pip install -e ./hintcheck
 ```
 
+For Python 3.6:
+```
+git clone https://github.com/Vlad-Shcherbina/hintcheck.git
+cd hintcheck
+git checkout py36
+pip install -e .
+```
 
 ## Usage
 
