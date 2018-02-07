@@ -172,24 +172,66 @@ def _(type, ctx, *, allow_wrap):
     return Checker(check=is_instance_check, is_wrapping=False)
 
 
-@compile_checker.register(typing.TypingMeta)
+@compile_checker.register(typing.TypeVar)
 def _(type, ctx, *, allow_wrap):
-    # Generally these types raise exception saying isinstance is not supported,
-    # but who knows. We don't want to silently ignore any type errors.
-    raise NotImplementedError(
-        f'{type}\n\n'
-        f'Type hint in\n{ctx.hint_location.mimic_traceback()}')
+    return compile_typevar_checker(type, ctx, allow_wrap=allow_wrap)
 
 
-@compile_checker.register(typing._Any)
+@compile_checker.register(typing._SpecialForm)
 def _(type, ctx, *, allow_wrap):
+    if type._name == 'Any':
+        return compile_any_checker(type, ctx, allow_wrap=allow_wrap)
+    else:
+        raise NotImplementedError(
+            f'{type}\n\n'
+            f'Type hint in\n{ctx.hint_location.mimic_traceback()}')
+
+
+@compile_checker.register(typing._GenericAlias)
+def _(type, ctx, *, allow_wrap):
+    if type.__origin__ == tuple:
+        return compile_tuple_checker(type, ctx, allow_wrap=allow_wrap)
+
+    elif type.__origin__ == list:
+        return compile_list_checker(type, ctx, allow_wrap=allow_wrap)
+
+    elif type.__origin__ == set:
+        return compile_set_checker(type, ctx, allow_wrap=allow_wrap)
+
+    elif type.__origin__ == dict:
+        return compile_dict_checker(type, ctx, allow_wrap=allow_wrap)
+
+    elif type.__origin__ == collections.abc.Iterator:
+        return compile_iterator_checker(type, ctx, allow_wrap=allow_wrap)
+
+    elif type.__origin__ == collections.abc.Iterable:
+        return compile_iterable_checker(type, ctx, allow_wrap=allow_wrap)
+
+    elif type.__origin__ == collections.abc.Callable:
+        return compile_callable_checker(type, ctx, allow_wrap=allow_wrap)
+
+    elif type.__origin__ == typing.Union:
+        return compile_union_checker(type, ctx, allow_wrap=allow_wrap)
+
+    else:
+        raise NotImplementedError(
+            f'{type}\n\n'
+            f'Type hint in\n{ctx.hint_location.mimic_traceback()}')
+
+
+def compile_typevar_checker(type, ctx, *, allow_wrap):
     return Checker(
         check=lambda x: x,
         is_wrapping=False)
 
 
-@compile_checker.register(typing._Union)
-def _(type, ctx, *, allow_wrap):
+def compile_any_checker(type, ctx, *, allow_wrap):
+    return Checker(
+        check=lambda x: x,
+        is_wrapping=False)
+
+
+def compile_union_checker(type, ctx, *, allow_wrap):
     checkers = []
     for t in type.__args__:
         checkers.append(compile_checker(t, ctx, allow_wrap=allow_wrap))
@@ -208,8 +250,7 @@ def _(type, ctx, *, allow_wrap):
         is_wrapping=any(c.is_wrapping for c in checkers))
 
 
-@compile_checker.register(typing.TupleMeta)
-def _(type, ctx, *, allow_wrap):
+def compile_tuple_checker(type, ctx, *, allow_wrap):
     if len(type.__args__) == 2 and type.__args__[1] is ...:
         elem_type, _ = type.__args__
         elem_checker = compile_checker(
@@ -246,103 +287,93 @@ def _(type, ctx, *, allow_wrap):
     return Checker(check=tuple_check, is_wrapping=False)
 
 
-@compile_checker.register(typing.GenericMeta)
-def _(type, ctx, *, allow_wrap):
-    if type.__origin__ == typing.List:
-        t, = type.__args__
+def compile_list_checker(type, ctx, *, allow_wrap):
+    t, = type.__args__
 
-        elem_checker = compile_checker(t, ctx.append('[?]'), allow_wrap=False)
+    elem_checker = compile_checker(t, ctx.append('[?]'), allow_wrap=False)
 
-        def list_check(value):
-            __tracebackhide__ = hide_hint_errors
-            if not isinstance(value, list):
-                raise TypeHintError(
-                    ctx=ctx, expected_type=type, actual_value=value)
-            for x in value:
-                elem_checker.check(x)
-            return value
+    def list_check(value):
+        __tracebackhide__ = hide_hint_errors
+        if not isinstance(value, list):
+            raise TypeHintError(
+                ctx=ctx, expected_type=type, actual_value=value)
+        for x in value:
+            elem_checker.check(x)
+        return value
 
-        return Checker(check=list_check, is_wrapping=False)
+    return Checker(check=list_check, is_wrapping=False)
 
-    elif type.__origin__ == typing.Set:
-        # TODO: deduplicate with List.
-        t, = type.__args__
 
-        elem_checker = compile_checker(
-            t, ctx.append('.some_elem'), allow_wrap=False)
+def compile_set_checker(type, ctx, *, allow_wrap):
+    # TODO: deduplicate with List.
+    t, = type.__args__
 
-        def set_check(value):
-            __tracebackhide__ = hide_hint_errors
-            if not isinstance(value, set):
-                raise TypeHintError(
-                    ctx=ctx, expected_type=type, actual_value=value)
-            for x in value:
-                elem_checker.check(x)
-            return value
+    elem_checker = compile_checker(
+        t, ctx.append('.some_elem'), allow_wrap=False)
 
-        return Checker(check=set_check, is_wrapping=False)
+    def set_check(value):
+        __tracebackhide__ = hide_hint_errors
+        if not isinstance(value, set):
+            raise TypeHintError(
+                ctx=ctx, expected_type=type, actual_value=value)
+        for x in value:
+            elem_checker.check(x)
+        return value
 
-    elif type.__origin__ == typing.Dict:
-        kt, vt = type.__args__
+    return Checker(check=set_check, is_wrapping=False)
 
-        key_checker = compile_checker(
-            kt, ctx.append('.some_key'), allow_wrap=False)
-        value_checker = compile_checker(
-            vt, ctx.append('.some_value'), allow_wrap=False)
 
-        def dict_check(value):
-            __tracebackhide__ = hide_hint_errors
-            if not isinstance(value, dict):
-                raise TypeHintError(
-                    ctx=ctx, expected_type=type, actual_value=value)
-            for k, v in value.items():
-                key_checker.check(k)
-                value_checker.check(v)
-            return value
+def compile_dict_checker(type, ctx, *, allow_wrap):
+    kt, vt = type.__args__
 
-        return Checker(check=dict_check, is_wrapping=False)
+    key_checker = compile_checker(
+        kt, ctx.append('.some_key'), allow_wrap=False)
+    value_checker = compile_checker(
+        vt, ctx.append('.some_value'), allow_wrap=False)
 
-    elif type.__origin__ == typing.Iterator:
-        assert allow_wrap  # TODO
-        t, = type.__args__
-        elem_checker = compile_checker(
-            t, ctx.append('.some_elem'), allow_wrap=True)
+    def dict_check(value):
+        __tracebackhide__ = hide_hint_errors
+        if not isinstance(value, dict):
+            raise TypeHintError(
+                ctx=ctx, expected_type=type, actual_value=value)
+        for k, v in value.items():
+            key_checker.check(k)
+            value_checker.check(v)
+        return value
 
-        def iterator_check(value):
-            __tracebackhide__ = hide_hint_errors
-            if not isinstance(value, collections.abc.Iterator):
-                raise TypeHintError(
-                    ctx=ctx, expected_type=type, actual_value=value)
-            return IteratorCheckWrapper(elem_checker, value)
+    return Checker(check=dict_check, is_wrapping=False)
 
-        return Checker(check=iterator_check, is_wrapping=True)
 
-    elif type.__origin__ == typing.Iterable:
-        assert allow_wrap  # TODO
-        t, = type.__args__
-        elem_checker = compile_checker(
-            t, ctx.append('.some_elem'), allow_wrap=True)
+def compile_iterator_checker(type, ctx, *, allow_wrap):
+    assert allow_wrap  # TODO
+    t, = type.__args__
+    elem_checker = compile_checker(
+        t, ctx.append('.some_elem'), allow_wrap=True)
 
-        def iterable_check(value):
-            __tracebackhide__ = hide_hint_errors
-            if not isinstance(value, collections.abc.Iterable):
-                raise TypeHintError(
-                    ctx=ctx, expected_type=type, actual_value=value)
-            return IterableCheckWrapper(elem_checker, value)
+    def iterator_check(value):
+        __tracebackhide__ = hide_hint_errors
+        if not isinstance(value, collections.abc.Iterator):
+            raise TypeHintError(
+                ctx=ctx, expected_type=type, actual_value=value)
+        return IteratorCheckWrapper(elem_checker, value)
 
-        return Checker(check=iterable_check, is_wrapping=True)
+    return Checker(check=iterator_check, is_wrapping=True)
 
-    elif type.__origin__ is None:
-        # Some genericized ABCs have too weak (non-generic) isinstance checks,
-        # we don't want to silently ignore type errors because of that.
-        raise NotImplementedError(
-            f'generic with no type args: {type}\n\n'
-            f'Type hint in\n{ctx.hint_location.mimic_traceback()}')
 
-    else:
-        raise NotImplementedError(
-            f'{type}\n\n'
-            f'Type hint in\n{ctx.hint_location.mimic_traceback()}')
+def compile_iterable_checker(type, ctx, *, allow_wrap):
+    assert allow_wrap  # TODO
+    t, = type.__args__
+    elem_checker = compile_checker(
+        t, ctx.append('.some_elem'), allow_wrap=True)
+
+    def iterable_check(value):
+        __tracebackhide__ = hide_hint_errors
+        if not isinstance(value, collections.abc.Iterable):
+            raise TypeHintError(
+                ctx=ctx, expected_type=type, actual_value=value)
+        return IterableCheckWrapper(elem_checker, value)
+
+    return Checker(check=iterable_check, is_wrapping=True)
 
 
 class IteratorCheckWrapper(object):
@@ -369,8 +400,7 @@ class IterableCheckWrapper(object):
             self.elem_checker, self.iterable.__iter__())
 
 
-@compile_checker.register(typing.CallableMeta)
-def _(type, ctx, *, allow_wrap):
+def compile_callable_checker(type, ctx, *, allow_wrap):
     assert allow_wrap  # TODO
 
     arg_types = type.__args__[:-1]

@@ -2,7 +2,7 @@
 import sys
 import collections
 from typing import (
-    Any, Union, Tuple, NamedTuple, List, Set, Dict,
+    TypeVar, Any, Union, Tuple, NamedTuple, List, Set, Dict,
     Iterator, Iterable, Callable, Deque, SupportsInt)
 import logging
 import inspect
@@ -57,11 +57,25 @@ def test_type_not_supported():
             pass
     assert str(exc_info.value).startswith('typing.Deque[int]\n\n')
 
-    with pytest.raises(NotImplementedError) as exc_info:
-        @hintchecked
-        def f(x: Set):
-            pass
-    assert 'generic with no type args: typing.Set' in str(exc_info.value)
+
+def test_typevar():
+    T = TypeVar('T')
+    @hintchecked
+    def f(x: T):
+        pass
+
+    f(42)
+
+
+def test_unparameterized():
+    @hintchecked
+    def f(x: Set):
+        pass
+    f({1, 2, 3})
+    with pytest.raises(TypeHintError) as exc_info:
+        f(42)
+    assert exc_info.value.var_name == 'x'
+    assert exc_info.value.expected_type == Set
 
 
 def test_any():
