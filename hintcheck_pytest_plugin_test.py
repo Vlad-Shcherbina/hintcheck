@@ -1,9 +1,20 @@
+import pytest
+
 pytest_plugins = "pytester"  # to get testdir fixture
 
 
-def test_plugin(testdir):
-    # requires hintcheck plugin to be installed
+def is_plugin_installed():
+    import pkg_resources
+    for ep in pkg_resources.iter_entry_points('pytest11'):
+        if ep.name == 'pytest-hintcheck':
+            return True
+    return False
 
+
+@pytest.mark.skipif(
+    not is_plugin_installed(),
+    reason='requires hintcheck plugin to be installed')
+def test_plugin(testdir):
     testdir.makepyfile("""
     import typing
 
