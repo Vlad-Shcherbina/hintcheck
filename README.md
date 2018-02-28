@@ -53,16 +53,19 @@ pytest -p no:pytest-hintcheck
 ### In executable scripts
 
 ```python
-import hintcheck
-hintcheck.monkey_patch_named_tuple_constructors()
-# This should be called before any other modules are imported.
+from importlib.util import find_spec
+if __name__ == '__main__' and find_spec('hintcheck'):
+    import hintcheck
+    hintcheck.monkey_patch_named_tuple_constructors()
+    # This should be called before any other modules are imported.
 
 ...
 
 if __name__ == '__main__':
-    hintcheck.hintcheck_all_functions()
-    # This should be called after all modules are imported,
-    # but before the program is run.
+    if 'hintcheck' in globals():
+        hintcheck.hintcheck_all_functions()
+        # This should be called after all modules are imported,
+        # but before the program is run.
 
     main()
 
