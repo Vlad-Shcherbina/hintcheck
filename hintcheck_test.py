@@ -383,7 +383,7 @@ def test_locate_all_functions_that_need_hintcheck():
     fs = {
         f.function
         for f in locate_all_functions_that_need_hintcheck()
-        if f.function.__module__ != '__main__'}
+        if f.function.__module__ == 'hintcheck_test'}
     for q in fs:
         print(q, q.__module__)
     assert fs == {f, C.m, C.p.fget, C.rw.fget, C.rw.fset}
