@@ -506,6 +506,9 @@ def locate_all_functions_that_need_hintcheck():
     for f in locate_all_functions():
         if f.function.__module__ == 'typing':
             continue
+        if f.qualname == '_pytest.mark.Mark.__init__':
+            # work around https://github.com/pytest-dev/pytest/issues/3635
+            continue
         hints = typing.get_type_hints(f.function)
         if hints:
             yield f
