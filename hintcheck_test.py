@@ -355,6 +355,21 @@ def test_callable():
     assert exc_info.value.actual_value == 42
 
 
+def test_callable_no_wrap():
+    @hintchecked
+    def f(c) -> Tuple[int, Callable[[], None]]:
+        return 42, c
+
+    f(lambda: None)
+    f(lambda x: x)  # passes because these is no wrapping
+
+    with pytest.raises(TypeHintError) as exc_info:
+        f('zzz')
+    assert exc_info.value.var_name == 'return[1]'
+    assert exc_info.value.expected_type == Callable[[], None]
+    assert exc_info.value.actual_value == 'zzz'
+
+
 def f(x: int):
     return x
 

@@ -401,7 +401,15 @@ class IterableCheckWrapper(object):
 
 
 def compile_callable_checker(type, ctx, *, allow_wrap):
-    assert allow_wrap  # TODO
+    if not allow_wrap:
+        def callable_check(value):
+            __tracebackhide__ = hide_hint_errors
+            if not isinstance(value, collections.abc.Callable):
+                raise TypeHintError(
+                    ctx=ctx, expected_type=type, actual_value=value)
+            return value
+
+        return Checker(check=callable_check, is_wrapping=False)
 
     arg_types = type.__args__[:-1]
     result_type = type.__args__[-1]
