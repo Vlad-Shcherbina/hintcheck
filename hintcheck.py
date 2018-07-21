@@ -168,6 +168,8 @@ def _(type, ctx, *, allow_wrap):
         # Perhaps add generic way to register 'virtual subtypes'?
         if type is float and isinstance(value, int):
             return value
+        if type is bytes and isinstance(value, bytearray):
+            return value
         raise TypeHintError(ctx=ctx, expected_type=type, actual_value=value)
     return Checker(check=is_instance_check, is_wrapping=False)
 
