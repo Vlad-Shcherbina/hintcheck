@@ -11,6 +11,7 @@ import pytest
 
 from hintcheck import (
     hintchecked,
+    GetTypeHintsError,
     TypeHintError,
     locate_all_functions_that_need_hintcheck,
     hintcheck_all_functions,
@@ -56,6 +57,18 @@ def test_type_not_supported():
         def f(x: Deque[int]):
             pass
     assert str(exc_info.value).startswith('typing.Deque[int]\n\n')
+
+
+def test_malformed_string_type_hint():
+    @hintchecked
+    def f(x: 'int'):
+        pass
+
+    with pytest.raises(GetTypeHintsError) as exc_info:
+        @hintchecked
+        def f(x: 'int1'):
+            pass
+    assert "def f(x: 'int1'):" in str(exc_info.value)
 
 
 def test_typevar():

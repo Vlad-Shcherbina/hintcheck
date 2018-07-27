@@ -56,6 +56,16 @@ import collections
 logger = logging.getLogger(__name__)
 
 
+class GetTypeHintsError(Exception):
+    def __init__(self, hint_location):
+        self.hint_location = hint_location
+
+    def __str__(self):
+        return (
+            'get_type_hints() failed\n\n'
+            f'Type hint in\n{self.hint_location.mimic_traceback()}')
+
+
 class TypeHintError(Exception):
     def __init__(self, *, ctx, expected_type, actual_value):
         self.ctx = ctx
@@ -78,20 +88,30 @@ def hide_hint_errors(exc_info):
     return exc_info.errisinstance(TypeHintError)
 
 
-def hintchecked(f):
-    hints = typing.get_type_hints(f)
-    if not hints:
-        return f
-
+def get_function_location(f):
     # TODO: what if function is already decorated?
     if hasattr(f, '__code__'):
         code = f.__code__
-        hint_location = Location(
+        return Location(
             function_name=code.co_name,
             filename=code.co_filename, lineno=code.co_firstlineno)
     else:
-        hint_location = Location(
+        return Location(
             function_name=str(f), filename=None, lineno=None)
+
+
+def safe_get_type_hints(f, location):
+    try:
+        return typing.get_type_hints(f)
+    except Exception as e:
+        raise GetTypeHintsError(location) from e
+
+
+def hintchecked(f):
+    hint_location = get_function_location(f)
+    hints = safe_get_type_hints(f, hint_location)
+    if not hints:
+        return f
 
     sig = inspect.signature(f)
 
@@ -519,7 +539,9 @@ def locate_all_functions_that_need_hintcheck():
         if f.qualname == '_pytest.mark.Mark.__init__':
             # work around https://github.com/pytest-dev/pytest/issues/3635
             continue
-        hints = typing.get_type_hints(f.function)
+        hints = safe_get_type_hints(
+            f.function, get_function_location(f.function))
+
         if hints:
             yield f
 
@@ -560,7 +582,7 @@ def monkey_patch_named_tuple_constructors():
                 # Compile checkers on first constructor invocation.
                 # Can't do it on tuple definition, because item types could
                 # be forward-referenced.
-                hints = typing.get_type_hints(nm)
+                hints = safe_get_type_hints(nm, location)
                 checkers = {
                     name: compile_checker(
                         t,
