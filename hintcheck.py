@@ -203,6 +203,8 @@ def _(type, ctx, *, allow_wrap):
 def _(type, ctx, *, allow_wrap):
     if type._name == 'Any':
         return compile_any_checker(type, ctx, allow_wrap=allow_wrap)
+    elif type._name == 'NoReturn':
+        return compile_noreturn_checker(type, ctx, allow_wrap=allow_wrap)
     else:
         raise NotImplementedError(
             f'{type}\n\n'
@@ -250,6 +252,14 @@ def compile_typevar_checker(type, ctx, *, allow_wrap):
 def compile_any_checker(type, ctx, *, allow_wrap):
     return Checker(
         check=lambda x: x,
+        is_wrapping=False)
+
+
+def compile_noreturn_checker(type, ctx, *, allow_wrap):
+    def noreturn_check(value):
+        raise TypeHintError(ctx=ctx, expected_type=type, actual_value=value)
+    return Checker(
+        check=noreturn_check,
         is_wrapping=False)
 
 
