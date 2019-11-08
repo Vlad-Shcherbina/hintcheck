@@ -562,8 +562,9 @@ def locate_all_functions_that_need_hintcheck():
     for f in locate_all_functions():
         if f.function.__module__ == 'typing':
             continue
-        if f.qualname == '_pytest.mark.Mark.__init__':
-            # work around https://github.com/pytest-dev/pytest/issues/3635
+        if (f.function.__module__ or '').startswith('_pytest.'):
+            # a number of annoying to handle or outright malformed
+            # type hints in pytest
             continue
         hints = safe_get_type_hints(
             f.function, get_function_location(f.function))
