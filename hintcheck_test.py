@@ -2,7 +2,7 @@
 import sys
 import collections
 from typing import (
-    TypeVar, Any, NoReturn, Union, Tuple, NamedTuple, List, Set, Dict,
+    TypeVar, Any, NoReturn, Type, Union, Tuple, NamedTuple, List, Set, Dict,
     Iterator, Iterable, Callable, Deque, SupportsInt)
 import logging
 import inspect
@@ -112,6 +112,19 @@ def test_noreturn():
     assert exc_info.value.var_name == 'return'
     assert exc_info.value.expected_type == NoReturn
     assert exc_info.value.actual_value == 1.0
+
+
+def test_type():
+    @hintchecked
+    def f(x: Type[int]):
+        pass
+
+    f(int)
+    with pytest.raises(TypeHintError) as exc_info:
+        f(42)
+    assert exc_info.value.var_name == 'x'
+    assert exc_info.value.expected_type == Type[int]
+    assert exc_info.value.actual_value == 42
 
 
 def test_number_subtyping():

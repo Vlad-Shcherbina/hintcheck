@@ -48,6 +48,7 @@ import types
 import typing
 import inspect
 import logging
+import builtins
 import textwrap
 import linecache
 import functools
@@ -237,6 +238,9 @@ def _(type, ctx, *, allow_wrap):
     elif type.__origin__ == typing.Union:
         return compile_union_checker(type, ctx, allow_wrap=allow_wrap)
 
+    elif type.__origin__ == builtins.type:
+        return compile_type_checker(type, ctx, allow_wrap=allow_wrap)
+
     else:
         raise NotImplementedError(
             f'{type}\n\n'
@@ -260,6 +264,18 @@ def compile_noreturn_checker(type, ctx, *, allow_wrap):
         raise TypeHintError(ctx=ctx, expected_type=type, actual_value=value)
     return Checker(
         check=noreturn_check,
+        is_wrapping=False)
+
+
+def compile_type_checker(type, ctx, *, allow_wrap):
+    def type_check(value):
+        if not isinstance(value, builtins.type):
+            raise TypeHintError(ctx=ctx, expected_type=type, actual_value=value)
+        # TODO: issubclass(value, type.__args__)
+        return value
+
+    return Checker(
+        check=type_check,
         is_wrapping=False)
 
 
