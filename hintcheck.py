@@ -212,6 +212,11 @@ def _(type, ctx, *, allow_wrap):
             f'Type hint in\n{ctx.hint_location.mimic_traceback()}')
 
 
+@compile_checker.register(typing._SpecialGenericAlias)
+def _(type, ctx, *, allow_wrap):
+    return compile_checker(type.__origin__, ctx, allow_wrap=allow_wrap)
+
+
 @compile_checker.register(typing._GenericAlias)
 def _(type, ctx, *, allow_wrap):
     if type.__origin__ == tuple:
@@ -234,6 +239,10 @@ def _(type, ctx, *, allow_wrap):
 
     elif type.__origin__ == collections.abc.Callable:
         return compile_callable_checker(type, ctx, allow_wrap=allow_wrap)
+
+    elif type.__origin__ == collections.abc.Mapping:
+        # TODO: implement
+        return compile_any_checker(type, ctx, allow_wrap=allow_wrap)
 
     elif type.__origin__ == typing.Union:
         return compile_union_checker(type, ctx, allow_wrap=allow_wrap)

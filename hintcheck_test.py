@@ -88,7 +88,7 @@ def test_unparameterized():
     with pytest.raises(TypeHintError) as exc_info:
         f(42)
     assert exc_info.value.var_name == 'x'
-    assert exc_info.value.expected_type == Set
+    assert exc_info.value.expected_type == set
 
 
 def test_any():
