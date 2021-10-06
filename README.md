@@ -53,16 +53,10 @@ pytest -p no:pytest-hintcheck
 ### In executable scripts
 
 ```python
-from importlib.util import find_spec
-if __name__ == '__main__' and find_spec('hintcheck'):
-    import hintcheck
-    hintcheck.monkey_patch_named_tuple_constructors()
-    # This should be called before any other modules are imported.
-
-...
-
 if __name__ == '__main__':
-    if 'hintcheck' in globals():
+    from importlib.util import find_spec
+    if find_spec('hintcheck'):
+        import hintcheck
         hintcheck.hintcheck_all_functions()
         # This should be called after all modules are imported,
         # but before the program is run.
@@ -83,7 +77,7 @@ Mypy is a large project with some serious support. `hintcheck` is a hobbie thing
 
 As I understand it, mypy's focus is on finding type errors in large programs before they are run. `hintcheck` focuses on finding lies in type annotations in small programs. Type errors in general are not a concern because Python is mostly good at diagnosing them at runtime, assuming the coverage is good (and there are other reasons to have good coverage anyway).
 
-Mypy supports type annotations in all contexts described in PEP 484 (functions, fields, variables). `hintcheck` only checks annotations in functions and named tuples.
+Mypy supports type annotations in all contexts described in PEP 484 (functions, fields, variables). `hintcheck` only checks annotations in functions.
 
 Mypy has no effect on the program execution whatsoever. `hintcheck` adds some overhead, and it's instrumentation has some inevitable subtle side effects. Oh, and of course it raises an exception when the annotation does not match the actual type of the value.
 

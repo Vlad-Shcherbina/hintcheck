@@ -2,7 +2,7 @@
 import sys
 import collections
 from typing import (
-    TypeVar, Any, NoReturn, Type, Union, Tuple, NamedTuple, List, Set, Dict,
+    TypeVar, Any, NoReturn, Type, Union, Tuple, List, Set, Dict,
     Iterator, Iterable, Callable, Deque, SupportsInt)
 import logging
 import inspect
@@ -15,7 +15,7 @@ from hintcheck import (
     TypeHintError,
     locate_all_functions_that_need_hintcheck,
     hintcheck_all_functions,
-    monkey_patch_named_tuple_constructors)
+)
 
 
 def test_smoke():
@@ -201,45 +201,6 @@ def test_tuple_ellipsis():
         f(t=('zzz',))
     assert exc_info.value.var_name == 't[?]'
     assert exc_info.value.expected_type == int
-
-
-def test_named_tuple():
-    monkey_patch_named_tuple_constructors()
-
-    filename = inspect.stack()[0].filename
-    t_lineno = inspect.stack()[0].lineno + 2
-
-    class T(NamedTuple):
-        x: int
-        y: int
-        z: int = 0
-
-    ts_lineno = inspect.stack()[0].lineno + 1
-    TS = NamedTuple('TS', [('x', str), ('y', str)])
-
-    t = T(42, 43)
-    assert t == (42, 43, 0)
-    assert t.x == 42
-    assert t[1] == 43
-    T(*range(2))
-    T(x=42, y=42)
-    TS('hello', 'world')
-
-    with pytest.raises(TypeHintError) as exc_info:
-        T(42, 'zzz')
-    assert exc_info.value.var_name == 'y'
-    assert exc_info.value.expected_type == int
-    assert exc_info.value.ctx.hint_location.function_name == 'T'
-    assert exc_info.value.ctx.hint_location.filename == filename
-    assert exc_info.value.ctx.hint_location.lineno == t_lineno
-
-    with pytest.raises(TypeHintError) as exc_info:
-        TS(42, 'zzz')
-    assert exc_info.value.var_name == 'x'
-    assert exc_info.value.expected_type == str
-    assert exc_info.value.ctx.hint_location.function_name == 'TS'
-    assert exc_info.value.ctx.hint_location.filename == filename
-    assert exc_info.value.ctx.hint_location.lineno == ts_lineno
 
 
 def test_list():
